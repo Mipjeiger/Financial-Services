@@ -24,34 +24,53 @@ def load_finance_csv(file_path: str):
     # rename column
     df = df.rename(
         columns={
-            "S. No.": "customer_id",
             "Total Loan": "transaction_amount",
             "LCY Deposit": "account_balance",
         }
     )
 
-    df = df[["customer_id", "transaction_amount", "account_balance"]]
+    df = df[["transaction_amount", "account_balance"]]
 
-    with engine.connect() as conn:
-        df.to_sql("finance", conn, schema="raw", if_exists="append", index=False)
+    # Insert dengan chunksize
+    df.to_sql(
+        "finance",
+        engine,
+        schema="raw",  # SCHEMA name in SQL
+        if_exists="append",
+        index=False,
+        chunksize=1000,
+    )
     print(f"Data loaded into finance table.")
 
 
 def load_marketing_csv(file_path: str):
     df = pd.read_csv(file_path, sep=";")
 
+    # truncate table marketing first
+    with engine.begin() as conn:
+        conn.execute(text("TRUNCATE TABLE raw.marketing RESTART IDENTITY CASCADE"))
+
+    # Rename columns
     df = df.rename(
         columns={
-            "age": "customer_id",  # asumsi age sebagai proxy ID (contoh)
             "duration": "clicks",
-            "campaign": "impression",
+            "campaign": "impressions",
             "previous": "conversion",
         }
     )
 
-    df = df[["customer_id", "clicks", "impression", "conversion"]]
-    with engine.connect() as conn:
-        df.to_sql("marketing", conn, schema="raw", if_exists="append", index=False)
+    # Pilih kolom yang diperlukan
+    df = df[["clicks", "impressions", "conversion"]]
+
+    # Insert data ke database dengan replace (drop & create new table)
+    df.to_sql(
+        "marketing",
+        engine,
+        schema="raw",  # SCHEMA name in SQL
+        if_exists="replace",  # Replace akan drop table lama dan buat baru
+        index=False,
+        chunksize=1000,
+    )
     print(f"Data loaded into marketing table.")
 
 
