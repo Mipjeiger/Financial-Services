@@ -46,9 +46,12 @@ def load_finance_csv(file_path: str):
 def load_marketing_csv(file_path: str):
     df = pd.read_csv(file_path, sep=";")
 
-    # truncate table marketing first
+    # Truncate table dan reset sequence untuk customer_id dimulai dari AA001
     with engine.begin() as conn:
         conn.execute(text("TRUNCATE TABLE raw.marketing RESTART IDENTITY CASCADE"))
+        conn.execute(
+            text("SELECT setval('customer_id_seq', 1, false)")  
+        )  # Reset sequence ke 1
 
     # Rename columns
     df = df.rename(
@@ -59,19 +62,21 @@ def load_marketing_csv(file_path: str):
         }
     )
 
-    # Pilih kolom yang diperlukan
+    # Pilih kolom yang diperlukan (TANPA customer_id - akan auto-generate)
     df = df[["clicks", "impressions", "conversion"]]
 
-    # Insert data ke database dengan replace (drop & create new table)
+    # Insert data dengan append (trigger akan auto-generate customer_id)
     df.to_sql(
         "marketing",
         engine,
-        schema="raw",  # SCHEMA name in SQL
-        if_exists="replace",  # Replace akan drop table lama dan buat baru
+        schema="raw",
+        if_exists="append",  # Append agar trigger tetap berfungsi
         index=False,
         chunksize=1000,
     )
-    print(f"Data loaded into marketing table.")
+    print(
+        f"Data loaded into marketing table with auto-generated customer_id (AA001, AA002, ...)."
+    )
 
 
 # load data
