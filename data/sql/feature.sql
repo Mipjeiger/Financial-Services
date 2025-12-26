@@ -313,6 +313,93 @@ SELECT
     END AS alert_level
 FROM label.fraud_label_daily;
 
+-- fraud label dataset
+DROP TABLE IF EXISTS feature.training_fraud_dataset;
+-- 
+CREATE TABLE feature.training_fraud_dataset AS
+WITH finance_daily AS (
+    SELECT
+        DATE(created_at) AS event_date,
+        COUNT(*) AS tx_count,
+        SUM(transaction_amount) AS total_tx_amount,
+        AVG(transaction_amount) AS avg_tx_amount,
+        MAX(transaction_amount) AS max_tx_amount,
+        STDDEV(transaction_amount) AS std_tx_amount,
+        AVG(account_balance) AS avg_account_balance
+    FROM raw.finance
+    GROUP BY DATE(created_at)
+),
+
+marketing_daily AS (
+    SELECT
+        customer_id,
+        DATE(created_at) AS event_date,
+        SUM(clicks) AS total_clicks,
+        SUM(impressions) AS total_impressions,
+        SUM(conversion) AS total_conversion,
+        CASE
+            WHEN SUM(impressions) > 0
+            THEN SUM(clicks)::FLOAT / SUM(impressions)
+            ELSE 0
+        END AS ctr
+    FROM raw.marketing
+    GROUP BY customer_id, DATE(created_at)
+),
+
+scored AS (
+    SELECT
+        m.customer_id AS user_id,
+        m.event_date,
+
+        f.tx_count,
+        f.total_tx_amount,
+        f.avg_tx_amount,
+        f.max_tx_amount,
+        f.std_tx_amount,
+        f.avg_account_balance,
+
+        m.total_clicks,
+        m.total_impressions,
+        m.total_conversion,
+        m.ctr,
+
+        EXTRACT(DOW FROM m.event_date)   AS weekday,
+        EXTRACT(MONTH FROM m.event_date) AS month,
+        EXTRACT(YEAR FROM m.event_date)  AS year,
+
+        -- CONTINUOUS FRAUD SCORE
+        (f.max_tx_amount / NULLIF(f.avg_tx_amount, 1)) + m.ctr
+        AS fraud_score
+
+    FROM marketing_daily m
+    JOIN finance_daily f
+      ON m.event_date = f.event_date
+),
+
+threshold AS (
+    SELECT
+        PERCENTILE_CONT(0.8)
+        WITHIN GROUP (ORDER BY fraud_score) AS fraud_threshold
+    FROM scored
+)
+
+SELECT
+    s.*,
+    CASE
+        WHEN s.fraud_score >= t.fraud_threshold
+        THEN 1 ELSE 0
+    END AS fraud_label
+FROM scored s
+CROSS JOIN threshold t;
+
+SELECT COUNT(*) FROM feature.training_fraud_dataset;
+
+SELECT fraud_label, COUNT(*) 
+FROM feature.training_fraud_dataset
+GROUP BY fraud_label;
+
+SELECT * FROM feature.training_fraud_dataset;
+
 SELECT * FROM raw.finance;
 
 SELECT * FROM raw.marketing;
