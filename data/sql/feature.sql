@@ -156,6 +156,162 @@ FROM feature.feature_fraud f
 JOIN label.fraud_label l
 USING (event_hour);
 
+-- Daily fraud features
+DROP TABLE IF EXISTS feature.finance_fraud_daily;
+
+CREATE TABLE feature.finance_fraud_daily AS
+SELECT
+    DATE(created_at)                    AS event_day,
+
+    COUNT(*)                            AS tx_count,
+    SUM(transaction_amount)             AS total_tx_amount,
+    AVG(transaction_amount)             AS avg_tx_amount,
+    MAX(transaction_amount)             AS max_tx_amount,
+    STDDEV(transaction_amount)          AS std_tx_amount,
+
+    AVG(account_balance)                AS avg_account_balance,
+
+    SUM(
+        CASE
+            WHEN transaction_amount > account_balance * 0.8
+            THEN 1 ELSE 0
+        END
+    )                                   AS risky_tx_count
+
+FROM raw.finance
+GROUP BY 1;
+
+-- Marketing daily fraud features
+DROP TABLE IF EXISTS feature.marketing_fraud_daily;
+
+CREATE TABLE feature.marketing_fraud_daily AS
+SELECT
+    DATE(created_at)                    AS event_day,
+
+    COUNT(DISTINCT customer_id)        AS active_users,
+    SUM(clicks)                        AS total_clicks,
+    SUM(impressions)                   AS total_impressions,
+    AVG(conversion::INT)               AS conversion_rate,
+
+    AVG(clicks)                        AS avg_clicks_per_user
+
+FROM raw.marketing
+GROUP BY 1;
+
+-- Join feature fraud daily
+DROP TABLE IF EXISTS feature.feature_fraud_daily;
+
+CREATE TABLE feature.feature_fraud_daily AS
+SELECT
+    f.event_day,
+
+    -- finance
+    f.tx_count,
+    f.total_tx_amount,
+    f.avg_tx_amount,
+    f.max_tx_amount,
+    f.std_tx_amount,
+    f.avg_account_balance,
+    f.risky_tx_count,
+
+    -- marketing
+    m.active_users,
+    m.total_clicks,
+    m.total_impressions,
+    m.conversion_rate,
+    m.avg_clicks_per_user,
+
+    -- derived
+    f.total_tx_amount / NULLIF(f.tx_count,0)       AS avg_tx_per_event,
+    m.total_clicks / NULLIF(m.total_impressions,0) AS ctr
+
+FROM feature.finance_fraud_daily f
+LEFT JOIN feature.marketing_fraud_daily m
+ON f.event_day = m.event_day;
+
+-- label fraud daily
+DROP TABLE IF EXISTS label.fraud_label_daily;
+
+CREATE TABLE label.fraud_label_daily AS
+SELECT
+    event_day,
+
+    /* =========================
+       FRAUD SCORE (0 – 1)
+       ========================= */
+    LEAST(
+        1.0,
+        (
+            (risky_tx_count::FLOAT / NULLIF(tx_count,1)) * 0.4 +
+            (avg_tx_amount / NULLIF(avg_account_balance,1)) * 0.3 +
+            (std_tx_amount / NULLIF(avg_tx_amount,1)) * 0.2 +
+            (1 - COALESCE(ctr,0)) * 0.1
+        )
+    ) AS fraud_score,
+
+    /* =========================
+       FRAUD LABEL
+       ========================= */
+    CASE
+        WHEN
+            (
+                (risky_tx_count::FLOAT / NULLIF(tx_count,1)) * 0.4 +
+                (avg_tx_amount / NULLIF(avg_account_balance,1)) * 0.3 +
+                (std_tx_amount / NULLIF(avg_tx_amount,1)) * 0.2 +
+                (1 - COALESCE(ctr,0)) * 0.1
+            ) >= 0.7
+        THEN 1
+        ELSE 0
+    END AS fraud_label,
+
+    /* =========================
+       REASON (DEBUG / AUDIT)
+       ========================= */
+    CASE
+        WHEN risky_tx_count >= 3 THEN 'HIGH_TX_VS_BALANCE'
+        WHEN ctr < 0.01 THEN 'LOW_CTR'
+        WHEN std_tx_amount > avg_tx_amount * 2 THEN 'TX_VARIANCE_SPIKE'
+        ELSE 'NORMAL'
+    END AS fraud_reason
+
+FROM feature.feature_fraud_daily;
+
+DROP TABLE IF EXISTS feature.training_fraud_daily;
+
+CREATE TABLE feature.training_fraud_daily AS
+SELECT
+    f.*,
+    l.fraud_score,
+    l.fraud_label,
+    l.fraud_reason
+FROM feature.feature_fraud_daily f
+JOIN label.fraud_label_daily l
+USING (event_day);
+
+-- Daily Fraud Risk (SQL Daily + fraud_score)
+SELECT
+    event_day,
+    tx_count,
+    ctr,
+    fraud_label,
+    fraud_score
+FROM feature.training_fraud_daily
+ORDER BY event_day;
+
+CREATE SCHEMA IF NOT EXISTS alert;
+
+-- Fraud alerting (business-friendly)
+CREATE TABLE alert.daily_fraud_alert AS
+SELECT
+    event_day,
+    fraud_score,
+    fraud_label,
+    CASE
+        WHEN fraud_score >= 0.8 THEN 'HIGH RISK'
+        WHEN fraud_score >= 0.5 THEN 'MEDIUM RISK'
+        ELSE 'LOW RISK'
+    END AS alert_level
+FROM label.fraud_label_daily;
 
 SELECT * FROM raw.finance;
 
@@ -176,3 +332,15 @@ SELECT * FROM feature.feature_fraud;
 SELECT * FROM label.fraud_label;	
 
 SELECT * FROM feature.training_fraud_dataset;
+
+SELECT * FROM feature.finance_fraud_daily;
+
+SELECT * FROM feature.marketing_fraud_daily;
+
+SELECT * FROM feature.feature_fraud_daily;
+
+SELECT * FROM label.fraud_label_daily;
+
+SELECT * FROM feature.training_fraud_daily;
+
+SELECT * FROM alert.daily_fraud_alert;
