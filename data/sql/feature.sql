@@ -1,4 +1,10 @@
 -- ========================================
+-- SETUP SCHEMAS
+-- ========================================
+CREATE SCHEMA IF NOT EXISTS raw;
+CREATE SCHEMA IF NOT EXISTS feature;
+
+-- ========================================
 -- SETUP TABLE DENGAN AUTO CUSTOMER_ID (AA001, AA002, ...)
 -- ========================================
 
@@ -68,6 +74,87 @@ SELECT
 FROM raw.finance
 GROUP BY 1;
 
+-- feature marketing fraud features
+DROP TABLE IF EXISTS feature.marketing_fraud_features;
+CREATE TABLE feature.marketing_fraud_features AS
+SELECT
+    DATE_TRUNC('hour', created_at) AS event_hour,
+
+    COUNT(DISTINCT customer_id)    AS active_users,
+    SUM(clicks)                    AS total_clicks,
+    SUM(impressions)               AS total_impressions,
+    AVG(conversion)                AS conversion_rate,
+
+    AVG(clicks)                    AS avg_clicks_per_user
+
+FROM raw.marketing
+GROUP BY 1;
+
+-- feature join (core table fraud detection)
+-- Cek dulu apakah source tables exist dan ada data
+SELECT 'finance_fraud_features' AS table_name, COUNT(*) AS row_count FROM feature.finance_fraud_features
+UNION ALL
+SELECT 'marketing_fraud_features', COUNT(*) FROM feature.marketing_fraud_features;
+
+DROP TABLE IF EXISTS feature.feature_fraud;
+CREATE TABLE feature.feature_fraud AS
+SELECT
+    f.event_hour,
+
+    -- finance signals
+    f.tx_count,
+    f.total_tx_amount,
+    f.avg_tx_amount,
+    f.max_tx_amount,
+    f.std_tx_amount,
+    f.avg_account_balance,
+    f.risky_tx_count,
+
+    -- marketing signals
+    m.active_users,
+    m.total_clicks,
+    m.total_impressions,
+    m.conversion_rate,
+    m.avg_clicks_per_user,
+
+    -- derived
+    f.total_tx_amount / NULLIF(f.tx_count,0)      AS avg_tx_per_event,
+    m.total_clicks / NULLIF(m.total_impressions,0) AS ctr
+
+FROM feature.finance_fraud_features f
+LEFT JOIN feature.marketing_fraud_features m
+ON f.event_hour = m.event_hour;
+
+-- fraud label(Rule-Based)
+CREATE TABLE IF NOT EXISTS label.fraud_label AS
+SELECT
+	event_hour,
+
+	CASE
+		WHEN
+			risky_tx_count >= 3
+			AND tx_count >= 10
+			AND ctr < 0.02
+		THEN 1
+		ELSE 0
+	END AS fraud_label,
+
+	CASE
+		WHEN risky_tx_count >= 3 THEN 'HIGH_TX_VS_BALANCE'
+		WHEN ctr < 0.02 THEN 'LOW_MARKETING_QUALITY'
+        ELSE 'NORMAL'
+    END AS fraud_reason
+FROM feature.feature_fraud;
+
+-- Training dataset (final)
+CREATE TABLE IF NOT EXISTS feature.training_fradu_dataset AS
+SELECT
+	f.*,
+	l.fraud_label,
+	l.fraud_reason
+FROM feature.feature_fraud f
+JOIN label.fraud_label l
+USING (event_hour);
 
 
 SELECT * FROM raw.finance;
@@ -81,3 +168,11 @@ SELECT * FROM feature.finance;
 SELECT * FROM marketing_scores;
 
 SELECT * FROM feature.finance_fraud_features;
+
+SELECT * FROM feature.marketing_fraud_features;
+
+SELECT * FROM feature.feature_fraud;
+
+SELECT * FROM label.fraud_label;	
+
+SELECT * FROM feature.training_fraud_dataset;
