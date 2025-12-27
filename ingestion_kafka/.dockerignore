@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+
+# Notebook
+*.ipynb
+
+# Data
+data/
+
+# Env
+.env
+
+# IDE
+.vscode/

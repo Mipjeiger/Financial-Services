@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+
+# Logs & temp
+logs/
+tmp/
+
+# Notebook
+*.ipynb
+
+# Env
+.env
+
+# IDE
+.vscode/

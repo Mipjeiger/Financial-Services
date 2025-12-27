@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+
+# Notebook
+*.ipynb
+
+# Old runs & artifacts
+mlruns/
+mlartifacts/
+
+# Data local
+data/
+
+# Env
+.env
+
+# IDE
+.vscode/

@@ -1,0 +1,41 @@
+# VCS
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtualenv
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebooks & experiments
+notebooks/
+AI-Engineer/
+images/
+
+# Data & artifacts
+data/
+mlruns/
+mlartifacts/
+
+# Infra (not needed in images)
+k8s/
+kubeflow/
+
+# Logs
+*.log
+
+# Env (optional, kalau pakai env_file)
+.env
