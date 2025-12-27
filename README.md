@@ -35,8 +35,8 @@
 - Renew feature.training_fraud_dataset; for compatible dividen fraud_label between 0 and 1 scores to 20% fraud_label = 1 and 80% for fraud_label = 0
 
 ## Workflow image project
-![alt text](<ChatGPT Image Dec 24, 2025 at 11_04_36 AM.png>)
-![alt text](<mlops engineer ready.webp>)
+![alt text](<images/ChatGPT Image Dec 24, 2025 at 11_04_36 AM.png>)
+![alt text](<images/mlops engineer ready.webp>)
 
 # 1️⃣ OUTPUT — Daily Fraud Risk (SQL daily + fraud_score)
 
