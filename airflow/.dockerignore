@@ -1,15 +1,76 @@
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
 
-# Logs & temp
+# Logs & temp (bisa sangat besar di Airflow!)
 logs/
 tmp/
+*.log
+*.out
+airflow.db
+airflow.cfg
+unittests.cfg
 
 # Notebook
 *.ipynb
+.ipynb_checkpoints/
 
-# Env
+# Data files
+data/
+*.csv
+*.parquet
+*.json
+*.xlsx
+*.db
+*.sqlite
+
+# Environment & secrets
 .env
+.env.*
+*.key
+*.pem
 
-# IDE
+# IDE & Editor
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Version control
+.git/
+.gitignore
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+README.md
+docs/
+
+# Testing
+tests/
+test/
+pytest_cache/
+.coverage
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Airflow specific
+airflow-webserver.pid
+airflow-scheduler.pid
+standalone_admin_password.txt

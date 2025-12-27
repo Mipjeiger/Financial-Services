@@ -21,3 +21,20 @@ services:
       AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR}
       AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES}
       AIRFLOW__CORE__DAGS_FOLDER: ${AIRFLOW__CORE__DAGS_FOLDER}
+
+  spark:
+    image: apache/spark:3.5.1-java17
+    container_name: spark
+    ports:
+      - "8081:8080"  # Spark Web UI
+      - "7077:7077"  # Spark Master
+    environment:
+      # MinIO S3 credentials
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
+    command: >
+      bash -c "/opt/spark/sbin/start-master.sh && tail -f /opt/spark/logs/*"
+    depends_on:
+      - minio

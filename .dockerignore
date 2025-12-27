@@ -1,41 +1,105 @@
 # VCS
 .git
 .gitignore
+.gitattributes
+.github/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.Python
 
 # Virtualenv
 .venv/
 venv/
+env/
+ENV/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+*.tmp
 
 # Notebooks & experiments
 notebooks/
 AI-Engineer/
 images/
+*.ipynb
+.ipynb_checkpoints/
 
-# Data & artifacts
+# Data & artifacts (bisa sangat besar!)
 data/
 mlruns/
 mlartifacts/
+*.csv
+*.parquet
+*.xlsx
+*.xls
+*.json
+*.db
+*.sqlite
+*.h5
+*.hdf5
+*.pkl
+*.pickle
 
 # Infra (not needed in images)
 k8s/
 kubeflow/
+docker/
+cicd/
+*.yml
+*.yaml
+docker-compose*.yml
+Dockerfile*
 
-# Logs
+# Logs & temp
 *.log
+logs/
+tmp/
+temp/
+*.out
 
-# Env (optional, kalau pakai env_file)
+# Env & secrets (optional, kalau pakai env_file)
 .env
+.env.*
+*.key
+*.pem
+secrets/
+
+# Testing & CI/CD
+tests/
+test/
+pytest_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.circleci/
+.gitlab-ci.yml
+
+# Documentation
+README.md
+*.md
+docs/
+LICENSE
+
+# Cache & temp files
+.cache/
+*.cache
+node_modules/
+.npm/
